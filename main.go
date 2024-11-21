@@ -27,6 +27,7 @@ func NewTogglRecord(name string, hr, min int) TogglRecord {
 func (t TogglRecord) TotalMinutes() float64 { return float64(t.hours*60 + t.minutes) }
 
 var (
+	//TODO: Set flags for date to compare to
 	ATH_hour    = flag.Int("ATH_hour", 1, "Total hours for your most worked month")
 	ATH_minute  = flag.Int("ATH_minute", 0, "Total minutes mod 60 for your most worked month")
 	weekendWork = flag.Float64("weekendWork", 0.0, "Total minutes you want to work on Saturdays and Sundays")
@@ -46,11 +47,13 @@ func main() {
 	}
 
 	//Parse arguments
+	nums := argsToInts(args...)
 	now := time.Now()
 	nowName := fmt.Sprintf("%s %d", now.Month(), now.Year())
-	start := NewTogglRecord(nowName, argToInt(args[0]), argToInt(args[1]))
-	current := NewTogglRecord(nowName, argToInt(args[2]), argToInt(args[3]))
-	fmt.Printf("Current time is %d:%02d\n", now.Hour(), now.Minute())
+	start := NewTogglRecord(nowName, (nums[0]), (nums[1]))
+	current := NewTogglRecord(nowName, (nums[2]), (nums[3]))
+	// TODO: determine whether to keep or set conditionally
+	// fmt.Printf("Current time is %d:%02d\n", now.Hour(), now.Minute())
 	curMin := current.TotalMinutes() + start.TotalMinutes()
 	fmt.Printf("Work done this month: %dh %dm\n", int(curMin/60.0), int(curMin)%60)
 	OutputStats(start, current, ATH)
@@ -106,13 +109,17 @@ func isWeekDay(d time.Weekday) bool {
 	return d >= time.Monday && d <= time.Friday
 }
 
-func argToInt(arg string) int {
-	x, err := strconv.Atoi(arg)
-	if err != nil {
-		log.Println(err)
-		os.Exit(1)
+func argsToInts(args ...string) []int {
+	nums := make([]int, len(args))
+	for i, arg := range args {
+		x, err := strconv.Atoi(arg)
+		if err != nil {
+			log.Println(err)
+			os.Exit(1)
+		}
+		nums[i] = x
 	}
-	return x
+	return nums
 }
 
 func workCalculator(gap, weekendWork float64) float64 {
