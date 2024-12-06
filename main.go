@@ -7,66 +7,94 @@ import (
 	"math"
 	"os"
 	"strconv"
+	"text/tabwriter"
 	"time"
 )
 
-type TogglRecord struct {
+type Record struct {
 	name    string
 	hours   int
 	minutes int
 }
 
-func NewTogglRecord(name string, hr, min int) TogglRecord {
-	return TogglRecord{
+func NewRecord(name string, hr, min int) Record {
+	return Record{
 		name:    name,
 		hours:   hr,
 		minutes: min,
 	}
 }
 
-func (t TogglRecord) TotalMinutes() float64 { return float64(t.hours*60 + t.minutes) }
+func (t Record) TotalMinutes() float64 { return float64(t.hours*60 + t.minutes) }
 
 var (
-	//TODO: Set flags for date to compare to
-	compareMonth_hour   = flag.Int("compareMonth_hour", 1, "Total hours for your most worked month")
-	compareMonth_minute = flag.Int("compareMonth_minute", 0, "Total minutes mod 60 for your most worked month")
-	weekendWork         = flag.Float64("weekendWork", 0.0, "Total minutes you want to work on Saturdays and Sundays")
-	crunch              = flag.Bool("crunch", false, "Whether you want to work without weekend breaks")
-	showCompareMonth    = flag.Bool("showCompareMonth", true, "Whether you want to show the month you're comparing to")
-	showIdeal           = flag.Bool("showIdeal", true, "Whether you want to show your ideal goal")
+	compareYear         = flag.Int("compareYear", EnvVarToInt(os.Getenv("COMPARE_YEAR"), 1971), "The month you are comparing to (1-12)")
+	compareMonth        = flag.Int("compareMonth", EnvVarToInt(os.Getenv("COMPARE_MONTH"), 1), "The month you are comparing to (1-12)")
+	compareMonth_hour   = flag.Int("compareMonth_hour", EnvVarToInt(os.Getenv("COMPARE_MONTH_HOUR"), 1), "Total hours for your most worked month")
+	compareMonth_minute = flag.Int("compareMonth_minute", EnvVarToInt(os.Getenv("COMPARE_MONTH_MINUTE"), 0), "Total minutes mod 60 for your most worked month")
+	crunch              = flag.Bool("crunch", EnvVarToBool(os.Getenv("CRUNCH"), false), "Whether you want to work without weekend breaks")
+	showCompareMonth    = flag.Bool("showCompareMonth", EnvVarToBool(os.Getenv("SHOW_COMPARE_MONTH"), true), "Whether you want to show the month you're comparing to")
+	showIdeal           = flag.Bool("showIdeal", EnvVarToBool(os.Getenv("SHOW_IDEAL"), true), "Whether you want to show your ideal goal")
+	weekendWork         = flag.Float64("weekendWork", EnvVarToFloat64(os.Getenv("WEEKEND_WORK"), 0.0), "Total minutes you want to work on Saturdays and Sundays")
 )
+
+func EnvVarToFloat64(s string, def float64) float64 {
+	v, err := strconv.ParseFloat(s, 0)
+	if err != nil {
+		return def
+	}
+	return v
+}
+
+func EnvVarToInt(s string, def int) int {
+	v, err := strconv.ParseInt(s, 0, 0)
+	if err != nil {
+		return def
+	}
+	return int(v)
+}
+
+func EnvVarToBool(s string, def bool) bool {
+	v, err := strconv.ParseBool(s)
+	if err != nil {
+		return def
+	}
+	return v
+}
 
 func main() {
 	flag.Parse()
 	args := flag.Args()
-	date := time.Date(2024, 9, 1, 0, 0, 0, 0, time.UTC)
-	compareMonth := NewTogglRecord(fmt.Sprintf("%s %d", date.Month(), date.Year()), *compareMonth_hour, *compareMonth_minute)
+	date := time.Date(*compareYear, time.Month(*compareMonth), 1, 0, 0, 0, 0, time.UTC)
+	compareMonth := NewRecord(fmt.Sprintf("%s %d", date.Month(), date.Year()), *compareMonth_hour, *compareMonth_minute)
 	i := compareMonth.TotalMinutes() * 1.20
-	Ideal := NewTogglRecord("Ideal", int(math.Round(i/60.0)), 00)
+	Ideal := NewRecord("Ideal", int(math.Round(i/60.0)), 00)
 	if len(args) < 4 {
 		log.Println("please provide hours and minutes")
 		os.Exit(1)
 	}
 
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', tabwriter.AlignRight|tabwriter.Debug)
+
 	//Parse arguments
 	nums := argsToInts(args...)
 	now := time.Now()
 	nowName := fmt.Sprintf("%s %d", now.Month(), now.Year())
-	start := NewTogglRecord(nowName, (nums[0]), (nums[1]))
-	current := NewTogglRecord(nowName, (nums[2]), (nums[3]))
+	start := NewRecord(nowName, (nums[0]), (nums[1]))
+	current := NewRecord(nowName, (nums[2]), (nums[3]))
 	// TODO: determine whether to keep or set conditionally
 	// fmt.Printf("Current time is %d:%02d\n", now.Hour(), now.Minute())
 	curMin := current.TotalMinutes() + start.TotalMinutes()
 	fmt.Printf("Work done this month: %dh %dm\n", int(curMin/60.0), int(curMin)%60)
 	if *showCompareMonth {
-		OutputStats(start, current, compareMonth)
+		OutputStats(w, start, current, compareMonth)
 	}
 	if *showIdeal {
-		OutputStats(start, current, Ideal)
+		OutputStats(w, start, current, Ideal)
 	}
 }
 
-func OutputStats(start, current, goal TogglRecord) {
+func OutputStats(w *tabwriter.Writer, start, current, goal Record) {
 	//Calculate minLeft
 	initialMinutes := start.TotalMinutes()
 	currentMinutes := current.TotalMinutes() + initialMinutes
@@ -103,7 +131,8 @@ func OutputStats(start, current, goal TogglRecord) {
 		}
 		fmt.Println()
 
-		fmt.Printf("Work left to reach %s:\n%dhr %dm (%.1f%%)\n", goal.name, int(gapMin-workDone)/60, int(gapMin-workDone)%60, goalpercentage)
+		fmt.Fprintf(w, "Work Left\t%dhr %dm \t%.1f%%\t\n", int(gapMin-workDone)/60, int(gapMin-workDone)%60, 100-goalpercentage)
+		w.Flush()
 		fmt.Println()
 	}
 }
