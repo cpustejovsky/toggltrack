@@ -9,66 +9,43 @@ import (
 	"strconv"
 	"text/tabwriter"
 	"time"
+
+	"github.com/cpustejovsky/toggltracker/calculator"
+	"github.com/cpustejovsky/toggltracker/flags"
+	"github.com/cpustejovsky/toggltracker/record"
 )
-
-type Record struct {
-	name    string
-	hours   int
-	minutes int
-}
-
-func NewRecord(name string, hr, min int) Record {
-	return Record{
-		name:    name,
-		hours:   hr,
-		minutes: min,
-	}
-}
-
-func (t Record) TotalMinutes() float64 { return float64(t.hours*60 + t.minutes) }
 
 var (
-	compareYear         = flag.Int("compareYear", EnvVarToInt(os.Getenv("COMPARE_YEAR"), 1971), "The month you are comparing to (1-12)")
-	compareMonth        = flag.Int("compareMonth", EnvVarToInt(os.Getenv("COMPARE_MONTH"), 1), "The month you are comparing to (1-12)")
-	compareMonth_hour   = flag.Int("compareMonth_hour", EnvVarToInt(os.Getenv("COMPARE_MONTH_HOUR"), 1), "Total hours for your most worked month")
-	compareMonth_minute = flag.Int("compareMonth_minute", EnvVarToInt(os.Getenv("COMPARE_MONTH_MINUTE"), 0), "Total minutes mod 60 for your most worked month")
-	crunch              = flag.Bool("crunch", EnvVarToBool(os.Getenv("CRUNCH"), false), "Whether you want to work without weekend breaks")
-	showCompareMonth    = flag.Bool("showCompareMonth", EnvVarToBool(os.Getenv("SHOW_COMPARE_MONTH"), true), "Whether you want to show the month you're comparing to")
-	showIdeal           = flag.Bool("showIdeal", EnvVarToBool(os.Getenv("SHOW_IDEAL"), true), "Whether you want to show your ideal goal")
-	weekendWork         = flag.Float64("weekendWork", EnvVarToFloat64(os.Getenv("WEEKEND_WORK"), 0.0), "Total minutes you want to work on Saturdays and Sundays")
+	compareYear         = flags.Int("compareYear", "COMPARE_YEAR", 1971, "The month you are comparing to (1-12)")
+	compareMonth        = flags.Int("compareMonth", "COMPARE_MONTH", 1, "The month you are comparing to (1-12)")
+	compareMonth_hour   = flags.Int("compareMonth_hour", "COMPARE_MONTH_HOUR", 1, "Total hours for your most worked month")
+	compareMonth_minute = flags.Int("compareMonth_minute", "COMPARE_MONTH_MINUTE", 0, "Total minutes mod 60 for your most worked month")
+	crunch              = flags.Bool("crunch", "CRUNCH", false, "Whether you want to work without weekend breaks")
+	showCompareMonth    = flags.Bool("showCompareMonth", "SHOW_COMPARE_MONTH", true, "Whether you want to show the month you're comparing to")
+	showIdeal           = flags.Bool("showIdeal", "SHOW_IDEAL", true, "Whether you want to show your ideal goal")
+	weekendWork         = flags.Float64("weekendWork", "WEEKEND_WORK", 0.0, "Total minutes you want to work on Saturdays and Sundays")
 )
 
-func EnvVarToFloat64(s string, def float64) float64 {
-	v, err := strconv.ParseFloat(s, 0)
-	if err != nil {
-		return def
+func argsToInts(args ...string) []int {
+	nums := make([]int, len(args))
+	for i, arg := range args {
+		x, err := strconv.Atoi(arg)
+		if err != nil {
+			log.Println(err)
+			os.Exit(1)
+		}
+		nums[i] = x
 	}
-	return v
-}
-
-func EnvVarToInt(s string, def int) int {
-	v, err := strconv.ParseInt(s, 0, 0)
-	if err != nil {
-		return def
-	}
-	return int(v)
-}
-
-func EnvVarToBool(s string, def bool) bool {
-	v, err := strconv.ParseBool(s)
-	if err != nil {
-		return def
-	}
-	return v
+	return nums
 }
 
 func main() {
 	flag.Parse()
 	args := flag.Args()
 	date := time.Date(*compareYear, time.Month(*compareMonth), 1, 0, 0, 0, 0, time.UTC)
-	compareMonth := NewRecord(fmt.Sprintf("%s %d", date.Month(), date.Year()), *compareMonth_hour, *compareMonth_minute)
+	compareMonth := record.New(fmt.Sprintf("%s %d", date.Month(), date.Year()), *compareMonth_hour, *compareMonth_minute)
 	i := compareMonth.TotalMinutes() * 1.20
-	Ideal := NewRecord("Ideal", int(math.Round(i/60.0)), 00)
+	Ideal := record.New("Ideal", int(math.Round(i/60.0)), 00)
 	if len(args) < 4 {
 		log.Println("please provide hours and minutes")
 		os.Exit(1)
@@ -80,8 +57,8 @@ func main() {
 	nums := argsToInts(args...)
 	now := time.Now()
 	nowName := fmt.Sprintf("%s %d", now.Month(), now.Year())
-	start := NewRecord(nowName, (nums[0]), (nums[1]))
-	current := NewRecord(nowName, (nums[2]), (nums[3]))
+	start := record.New(nowName, (nums[0]), (nums[1]))
+	current := record.New(nowName, (nums[2]), (nums[3]))
 	// TODO: determine whether to keep or set conditionally
 	// fmt.Printf("Current time is %d:%02d\n", now.Hour(), now.Minute())
 	if *showCompareMonth {
@@ -92,7 +69,7 @@ func main() {
 	}
 }
 
-func OutputStats(w *tabwriter.Writer, start, current, goal Record) {
+func OutputStats(w *tabwriter.Writer, start, current, goal record.Record) {
 	//Calculate minLeft
 	initialMinutes := start.TotalMinutes()
 	currentMinutes := current.TotalMinutes() + initialMinutes
@@ -101,7 +78,7 @@ func OutputStats(w *tabwriter.Writer, start, current, goal Record) {
 	//TODO: get this aligned?
 	// fmt.Fprintln(w, "\tTime\tPercentage")
 	fmt.Fprintf(w, "%s\t%.1fh\t\n",
-		goal.name, goal.TotalMinutes()/60.0)
+		goal.Name(), goal.TotalMinutes()/60.0)
 	curMin := current.TotalMinutes() + start.TotalMinutes()
 	fmt.Fprintf(w, "Work Done\t%.1fh\t%.1f%%\t\n", (curMin / 60.0), goalpercentage)
 	if currentMinutes > athMinutes {
@@ -113,7 +90,7 @@ func OutputStats(w *tabwriter.Writer, start, current, goal Record) {
 	} else {
 		//Calculate weekdays and weekend days
 		gapMin := athMinutes - initialMinutes
-		work := workCalculator(gapMin, *weekendWork)
+		work := calculator.CalculateWorkToday(gapMin, *weekendWork, *crunch)
 		workDone := (currentMinutes - initialMinutes)
 
 		var minLeft float64
@@ -130,55 +107,8 @@ func OutputStats(w *tabwriter.Writer, start, current, goal Record) {
 			fmt.Printf("you've done %dhr %dm of extra work!\n",
 				int(minLeft)/60, int(minLeft)%60)
 		}
-		fmt.Println()
 
 		fmt.Fprintf(w, "Work Left\t%.1fh\t%.1f%%\t\n", (gapMin-workDone)/60.0, 100-goalpercentage)
 		w.Flush()
-		fmt.Println()
-	}
-}
-func dayInMonth(m time.Month, year int) int {
-	return time.Date(year, m+1, 0, 0, 0, 0, 0, time.UTC).Day()
-}
-
-func isWeekDay(d time.Weekday) bool {
-	return d >= time.Monday && d <= time.Friday
-}
-
-func argsToInts(args ...string) []int {
-	nums := make([]int, len(args))
-	for i, arg := range args {
-		x, err := strconv.Atoi(arg)
-		if err != nil {
-			log.Println(err)
-			os.Exit(1)
-		}
-		nums[i] = x
-	}
-	return nums
-}
-
-func workCalculator(gap, weekendWork float64) float64 {
-	now := time.Now()
-	var weekDays, weekEndDays float64
-	year := now.Year()
-	month := now.Month()
-	daysInMonth := dayInMonth(month, year)
-	for i := now.Day(); i <= daysInMonth; i++ {
-		next := time.Date(year, month, i, 0, 0, 0, 0, time.UTC)
-		if isWeekDay(next.Weekday()) {
-			weekDays++
-		} else {
-			weekEndDays++
-		}
-	}
-	if *crunch {
-		return math.Ceil(gap / (weekEndDays + weekDays))
-	}
-	if isWeekDay(now.Weekday()) {
-		weekendWork *= weekEndDays
-		return math.Ceil((gap - weekendWork) / weekDays)
-	} else {
-		return weekendWork
 	}
 }
