@@ -84,8 +84,6 @@ func main() {
 	current := NewRecord(nowName, (nums[2]), (nums[3]))
 	// TODO: determine whether to keep or set conditionally
 	// fmt.Printf("Current time is %d:%02d\n", now.Hour(), now.Minute())
-	curMin := current.TotalMinutes() + start.TotalMinutes()
-	fmt.Printf("Work done this month: %dh %dm\n", int(curMin/60.0), int(curMin)%60)
 	if *showCompareMonth {
 		OutputStats(w, start, current, compareMonth)
 	}
@@ -100,9 +98,12 @@ func OutputStats(w *tabwriter.Writer, start, current, goal Record) {
 	currentMinutes := current.TotalMinutes() + initialMinutes
 	athMinutes := goal.TotalMinutes()
 	goalpercentage := (currentMinutes / athMinutes) * 100
-	fmt.Println("=====================================")
-	fmt.Printf("For %s (%dhr %dm)\n",
-		goal.name, goal.hours, goal.minutes)
+	//TODO: get this aligned?
+	// fmt.Fprintln(w, "\tTime\tPercentage")
+	fmt.Fprintf(w, "%s\t%.1fh\t\n",
+		goal.name, goal.TotalMinutes()/60.0)
+	curMin := current.TotalMinutes() + start.TotalMinutes()
+	fmt.Fprintf(w, "Work Done\t%.1fh\t%.1f%%\t\n", (curMin / 60.0), goalpercentage)
 	if currentMinutes > athMinutes {
 		t := currentMinutes - athMinutes
 		fmt.Printf("%dhr %dm (%.1f%%) extra\n",
@@ -131,7 +132,7 @@ func OutputStats(w *tabwriter.Writer, start, current, goal Record) {
 		}
 		fmt.Println()
 
-		fmt.Fprintf(w, "Work Left\t%dhr %dm \t%.1f%%\t\n", int(gapMin-workDone)/60, int(gapMin-workDone)%60, 100-goalpercentage)
+		fmt.Fprintf(w, "Work Left\t%.1fh\t%.1f%%\t\n", (gapMin-workDone)/60.0, 100-goalpercentage)
 		w.Flush()
 		fmt.Println()
 	}
