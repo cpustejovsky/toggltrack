@@ -3,7 +3,7 @@ package record_test
 import (
 	"testing"
 
-	"github.com/cpustejovsky/toggltracker/record"
+	"github.com/cpustejovsky/toggltrack/record"
 )
 
 func TestRecord(t *testing.T) {
