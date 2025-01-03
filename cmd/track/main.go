@@ -22,6 +22,7 @@ var (
 	compareMonth_minute = flags.Int("compareMonth_minute", "COMPARE_MONTH_MINUTE", 0, "Total minutes mod 60 for your most worked month")
 	crunch              = flags.Bool("crunch", "CRUNCH", false, "Whether you want to work without weekend breaks")
 	showCompareMonth    = flags.Bool("showCompareMonth", "SHOW_COMPARE_MONTH", true, "Whether you want to show the month you're comparing to")
+	ideal               = flags.Float64("ideal", "IDEAL", 0.05, "The percentage you want to grow")
 	showIdeal           = flags.Bool("showIdeal", "SHOW_IDEAL", true, "Whether you want to show your ideal goal")
 	weekendWork         = flags.Float64("weekendWork", "WEEKEND_WORK", 0.0, "Total minutes you want to work on Saturdays and Sundays")
 )
@@ -77,10 +78,10 @@ func OutputStats(w *tabwriter.Writer, start, current, goal record.Record) {
 	goalpercentage := (currentMinutes / athMinutes) * 100
 	//TODO: get this aligned?
 	// fmt.Fprintln(w, "\tTime\tPercentage")
-	fmt.Fprintf(w, "%s\t%.1fh\t\n",
-		goal.Name(), goal.TotalMinutes()/60.0)
+	fmt.Fprintf(w, "%s\t%.0fh %.0fm\t\n",
+		goal.Name(), goal.TotalMinutes()/60.0, math.Mod(goal.TotalMinutes(), 60.0))
 	curMin := current.TotalMinutes() + start.TotalMinutes()
-	fmt.Fprintf(w, "Work Done\t%.1fh\t%.1f%%\t\n", (curMin / 60.0), goalpercentage)
+	fmt.Fprintf(w, "Work Done\t%.0fh %.0fm\t%.1f%%\t\n", (curMin / 60.0), math.Mod(curMin, 60.0), goalpercentage)
 	if currentMinutes > athMinutes {
 		t := currentMinutes - athMinutes
 		fmt.Printf("%dhr %dm (%.1f%%) extra\n",
@@ -108,7 +109,7 @@ func OutputStats(w *tabwriter.Writer, start, current, goal record.Record) {
 				int(minLeft)/60, int(minLeft)%60)
 		}
 
-		fmt.Fprintf(w, "Work Left\t%.1fh\t%.1f%%\t\n", (gapMin-workDone)/60.0, 100-goalpercentage)
+		fmt.Fprintf(w, "Work Left\t%.0fh %.0fm\t%.1f%%\t\n", (gapMin-workDone)/60.0, math.Mod((gapMin-workDone), 60.0), 100-goalpercentage)
 		w.Flush()
 	}
 }
