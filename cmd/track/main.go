@@ -108,8 +108,10 @@ func OutputStats(w *tabwriter.Writer, start, current, goal record.Record) {
 			fmt.Printf("you've done %dhr %dm of extra work!\n",
 				int(minLeft)/60, int(minLeft)%60)
 		}
-
-		fmt.Fprintf(w, "Work Left\t%.0fh %.0fm\t%.1f%%\t\n", (gapMin-workDone)/60.0, math.Mod((gapMin-workDone), 60.0), 100-goalpercentage)
+		fmt.Println("gapMin", gapMin)
+		fmt.Println("workDone", workDone)
+		fmt.Println("(gapMin-workDone)", (gapMin-workDone))
+		fmt.Fprintf(w, "Work Left\t%.0fh %.0fm\t%.1f%%\t\n", math.Floor((gapMin-workDone)/60.0), math.Mod((gapMin-workDone), 60.0), 100-goalpercentage)
 		w.Flush()
 	}
 }
