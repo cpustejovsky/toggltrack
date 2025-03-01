@@ -5,6 +5,20 @@ import (
 	"time"
 )
 
+type Calculator struct {
+	Crunch          bool
+	WeekendWorkTime float64
+	IdealPercent    float64
+}
+
+func New(crunch bool, weekendWorkTime, ideal float64) Calculator {
+	return Calculator{
+		Crunch:          crunch,
+		WeekendWorkTime: weekendWorkTime,
+		IdealPercent:    ideal,
+	}
+}
+
 func daysInMonth(date time.Time) int {
 	return time.Date(date.Year(), date.Month()+1, 0, 0, 0, 0, 0, time.UTC).Day()
 }
@@ -13,19 +27,6 @@ func isWeekDay(d time.Weekday) bool {
 	return d >= time.Monday && d <= time.Friday
 }
 
-func CalculateWorkToday(gap, weekendWork float64, crunch bool) float64 {
-	now := time.Now()
-	weekDays, weekEndDays := daysRemainingInMonth(now.Day(), now)
-	if crunch {
-		return math.Ceil(gap / (weekEndDays + weekDays))
-	}
-	if isWeekDay(now.Weekday()) {
-		weekendWork *= weekEndDays
-		return math.Ceil((gap - weekendWork) / weekDays)
-	} else {
-		return weekendWork
-	}
-}
 func daysRemainingInMonth(start int, date time.Time) (float64, float64) {
 	var weekDays, weekEndDays float64
 	end := daysInMonth(date)
@@ -39,12 +40,27 @@ func daysRemainingInMonth(start int, date time.Time) (float64, float64) {
 	}
 	return weekDays, weekEndDays
 }
-func CalculateIdeal(minutes, weekendWork, ideal float64, ath, current time.Time) float64 {
+
+func (c Calculator) CalculateWorkToday(gap float64) float64 {
+	now := time.Now()
+	weekDays, weekEndDays := daysRemainingInMonth(now.Day(), now)
+	if c.Crunch {
+		return math.Ceil(gap / (weekEndDays + weekDays))
+	}
+	if isWeekDay(now.Weekday()) {
+		return math.Ceil((gap - c.WeekendWorkTime*weekDays) / weekDays)
+	} else {
+		return c.WeekendWorkTime
+	}
+}
+
+func (c Calculator) CalculateIdeal(minutes float64, ath time.Time) float64 {
+	current := time.Now()
 	weekendATH, weekdayATH := daysRemainingInMonth(0, ath)
 	weekendCurrent, weekdayCurrent := daysRemainingInMonth(current.Day(), current)
-	weekDay := (minutes - weekendATH*weekendWork) / weekdayATH
-	weekDay *= ideal
-	idealForMonth := (weekDay * weekdayCurrent) + (weekendWork * weekendCurrent)
+	weekDay := (minutes - weekendATH*c.WeekendWorkTime) / weekdayATH
+	weekDay *= c.IdealPercent
+	idealForMonth := (weekDay * weekdayCurrent) + (c.WeekendWorkTime * weekendCurrent)
 	return idealForMonth
 }
 
