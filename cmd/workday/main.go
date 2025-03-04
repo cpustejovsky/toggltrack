@@ -45,7 +45,8 @@ func main() {
 	args := flag.Args()
 	date := time.Date(*compareYear, time.Month(*compareMonth), 1, 0, 0, 0, 0, time.UTC)
 	compareMonth := record.New(fmt.Sprintf("%s %d", date.Month(), date.Year()), *compareMonth_hour, *compareMonth_minute)
-	i := compareMonth.TotalMinutes() * *ideal
+	calc := calculator.New(*crunch, *weekendWork, *ideal)
+	i := calc.CalculateIdeal(compareMonth.TotalMinutes(), date)
 	Ideal := record.New("Ideal", int(math.Round(i/60.0)), 00)
 	if len(args) < 4 {
 		log.Println("please provide hours and minutes")
@@ -91,7 +92,8 @@ func OutputStats(w *tabwriter.Writer, start, current, goal record.Record) {
 	} else {
 		//Calculate weekdays and weekend days
 		gapMin := athMinutes - curMin
-		work := calculator.CalculateWorkWeekDay(gapMin, *weekendWork, *crunch)
+		calc := calculator.New(*crunch, *weekendWork, *ideal)
+		work := calc.CalculateWorkWeekDay(gapMin)
 		workDone := (currentMinutes - initialMinutes)
 
 		fmt.Printf("Workday Work: %dhr %dm (%dmin)\n",
